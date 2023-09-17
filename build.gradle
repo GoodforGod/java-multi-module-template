@@ -1,108 +1,112 @@
+buildscript {
+    dependencies {
+        classpath "com.diffplug.spotless:spotless-plugin-gradle:6.19.0"
+    }
+}
+
 plugins {
     id "java"
-    id "jacoco"
     id "application"
+    id "jacoco"
+    id "jacoco-report-aggregation"
 
     id "org.sonarqube" version "4.3.0.3225"
-    id "com.diffplug.spotless" version "6.19.0"
-    id "com.github.johnrengelman.shadow" version "7.1.2"
 }
 
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
+sonarqube {
+    properties {
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.organization", "goodforgod"
+        property "sonar.projectKey", "GoodforGod_$artifactRootId"
+        property "sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml"
+    }
 }
-
-mainClassName = "io.goodforgod.template.Application"
-
-group = groupId
-version = artifactVersion
-
-sourceCompatibility = JavaVersion.VERSION_17
-targetCompatibility = JavaVersion.VERSION_17
 
 dependencies {
-    compileOnly "org.jetbrains:annotations:24.0.1"
-
-    implementation "ch.qos.logback:logback-classic:1.4.11"
-
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.9.3"
-    testImplementation "org.junit.jupiter:junit-jupiter-api:5.9.3"
-    testImplementation "org.junit.jupiter:junit-jupiter-params:5.9.3"
+    jacocoAggregation project(":module-one")
+    jacocoAggregation project(":module-two")
 }
 
-//noinspection GroovyAssignabilityCheck
-run {
-    environment([
-            "SECURITY_ENABLED": "false",
-    ])
-}
-
-test {
-    failFast(true)
-    useJUnitPlatform()
-    testLogging {
-        showStandardStreams(false)
-        events("passed", "skipped", "failed")
-        exceptionFormat("full")
-    }
-
-    environment([
-            "SECURITY_ENABLED": "false",
-    ])
-
-    jacoco {
-        excludes += ["**/Application*"]
-    }
-
+reporting {
     reports {
-        html.required = false
-        junitXml.required = false
+        testCodeCoverageReport(JacocoCoverageReport) {
+            testType = TestSuiteType.UNIT_TEST
+        }
     }
 }
 
-spotless {
-    java {
-        encoding("UTF-8")
-        importOrder()
-        removeUnusedImports()
-        eclipse("4.21").configFile("${rootDir}/config/codestyle.xml")
+allprojects {
+    group = groupId
+    version = artifactVersion
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
     }
 }
 
-jar.enabled(true)
-shadowJar {
-    mergeServiceFiles()
-    manifest {
-        attributes "Main-Class": mainClassName
-        attributes "Implementation-Version": artifactVersion
-        attributes "Build-Version": buildNumber
-        attributes "Build-Time": java.time.OffsetDateTime.now()
+subprojects {
+    apply plugin: "java"
+    apply plugin: "jacoco"
+    apply plugin: "application"
+    apply plugin: "com.diffplug.spotless"
+
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+
+    dependencies {
+        compileOnly "org.jetbrains:annotations:24.0.1"
+
+        implementation "ch.qos.logback:logback-classic:1.4.11"
+
+        testRuntimeOnly libs.junit.engine
+        testImplementation libs.junit.api
+        testImplementation libs.junit.params
     }
-}
 
-artifacts {
-    archives shadowJar
-}
+    test {
+        failFast(false)
+        useJUnitPlatform()
+        testLogging {
+            events("passed", "skipped", "failed")
+            exceptionFormat("full")
+            showStandardStreams(false)
+        }
 
-tasks.withType(JavaCompile) {
-    options.encoding("UTF-8")
-    options.incremental(true)
-    options.fork = true
-}
-
-check.dependsOn jacocoTestReport
-jacocoTestReport {
-    reports {
-        xml.required = false
-        html.outputLocation = layout.buildDirectory.dir("jacocoHtml")
+        reports {
+            html.required = false
+            junitXml.required = true
+        }
     }
-}
 
-javadoc {
-    options.encoding = "UTF-8"
-    if (JavaVersion.current().isJava9Compatible()) {
-        options.addBooleanOption("html5", true)
+    spotless {
+        java {
+            encoding("UTF-8")
+            importOrder()
+            removeUnusedImports()
+            eclipse("4.21").configFile("${rootDir}/config/codestyle.xml")
+        }
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding("UTF-8")
+        options.incremental(true)
+        options.fork = true
+    }
+
+    check.dependsOn jacocoTestReport
+    jacocoTestReport {
+        reports {
+            xml.required = true
+            html.destination file("${buildDir}/jacocoHtml")
+        }
+    }
+
+    javadoc {
+        options.encoding = "UTF-8"
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.addBooleanOption("html5", true)
+        }
     }
 }

@@ -1,0 +1,31 @@
+plugins {
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+}
+
+mainClassName = "io.goodforgod.template.Application"
+
+dependencies {
+
+}
+
+//noinspection GroovyAssignabilityCheck
+run {
+    environment([
+            "SECURITY_ENABLED": "false",
+    ])
+}
+
+jar.enabled(true)
+shadowJar {
+    mergeServiceFiles()
+    manifest {
+        attributes "Main-Class": mainClassName
+        attributes "Implementation-Version": artifactVersion
+        attributes "Build-Version": buildNumber
+        attributes "Build-Time": java.time.OffsetDateTime.now()
+    }
+}
+
+artifacts {
+    archives shadowJar
+}
